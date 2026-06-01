@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Football Game</title>
+<style>
+body{
+    margin:0;
+    background:#1b1b1b;
+    overflow:hidden;
+    font-family:Arial, sans-serif;
+}
+
+#ui{
+    position:absolute;
+    top:10px;
+    left:50%;
+    transform:translateX(-50%);
+    color:white;
+    font-size:24px;
+    z-index:10;
+    text-align:center;
+}
+
+#restartBtn{
+    margin-top:10px;
+    padding:8px 15px;
+    font-size:16px;
+    cursor:pointer;
+}
+
+canvas{
+    display:block;
+    margin:auto;
+    background:#1e8b3f;
+}
+</style>
+</head>
+<body>
+
+<div id="ui">
+    <div>Score: <span id="score">0</span></div>
+    <div>Time: <span id="timer">60</span></div>
+    <button id="restartBtn">Restart Game</button>
+</div>
+
+<canvas id="game" width="1000" height="600"></canvas>
+
+<script>
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+
+const scoreEl = document.getElementById("score");
+const timerEl = document.getElementById("timer");
+const restartBtn = document.getElementById("restartBtn");
+
+let score = 0;
+let gameTime = 60;
+
+const keys = {};
+
+const player = {
+    x: 200,
+    y: 300,
+    radius: 20,
+    speed: 5
+};
+
+const ball = {
+    x: 500,
+    y: 300,
+    radius: 12,
+    vx: 0,
+    vy: 0
+};
+
+const goal = {
+    x: 920,
+    y: 220,
+    width: 60,
+    height: 160
+};
+
+const goalie = {
+    x: 930,
+    y: 300,
+    width: 20,
+    height: 80,
+    speed: 3
+};
+
+function resetBall(){
+    ball.x = 500;
+    ball.y = 300;
+    ball.vx = 0;
+    ball.vy = 0;
+}
+
+function resetGame(){
+    score = 0;
+    gameTime = 60;
+    scoreEl.textContent = score;
+
+    player.x = 200;
+    player.y = 300;
+
+    goalie.y = 300;
+
+    resetBall();
+}
+
+document.addEventListener("keydown", e=>{
+    keys[e.key.toLowerCase()] = true;
+
+    if(e.code === "Space"){
+        shootBall();
+    }
+});
+
+document.addEventListener("keyup", e=>{
+    keys[e.key.toLowerCase()] = false;
+});
+
+function shootBall(){
+    const dx = ball.x - player.x;
+    const dy = ball.y - player.y;
+    const dist = Math.hypot(dx,dy);
+
+    if(dist < 40){
+        ball.vx = 12;
+        ball.vy = dy * 0.15;
+    }
+}
+
+function updatePlayer(){
+
+    if(keys["arrowup"] || keys["w"]) player.y -= player.speed;
+    if(keys["arrowdown"] || keys["s"]) player.y += player.speed;
+    if(keys["arrowleft"] || keys["a"]) player.x -= player.speed;
+    if(keys["arrowright"] || keys["d"]) player.x += player.speed;
+
+    player.x = Math.max(player.radius,
+        Math.min(canvas.width-player.radius, player.x));
+
+    player.y = Math.max(player.radius,
+        Math.min(canvas.height-player.radius, player.y));
+}
+
+function updateBall(){
+
+    let dx = ball.x - player.x;
+    let dy = ball.y - player.y;
+    let dist = Math.hypot(dx,dy);
+
+    if(dist < player.radius + ball.radius){
+        let angle = Math.atan2(dy,dx);
+        ball.vx += Math.cos(angle)*1.5;
+        ball.vy += Math.sin(angle)*1.5;
+    }
+
+    ball.x += ball.vx;
+    ball.y += ball.vy;
+
+    ball.vx *= 0.98;
+    ball.vy *= 0.98;
+
+    if(ball.y < ball.radius){
+        ball.y = ball.radius;
+        ball.vy *= -0.8;
+    }
+
+    if(ball.y > canvas.height-ball.radius){
+        ball.y = canvas.height-ball.radius;
+        ball.vy *= -0.8;
+    }
+
+    if(ball.x < ball.radius){
+        ball.x = ball.radius;
+        ball.vx *= -0.8;
+    }
+
+    if(ball.x > canvas.width-ball.radius){
+        ball.x = canvas.width-ball.radius;
+        ball.vx *= -0.8;
+    }
+}
+
+function updateGoalie(){
+
+    if(ball.y < goalie.y){
+        goalie.y -= goalie.speed;
+    }else{
+        goalie.y += goalie.speed;
+    }
+
+    goalie.y = Math.max(
+        goal.y + goalie.height/2,
+        Math.min(goal.y + goal.height - goalie.height/2, goalie.y)
+    );
+
+    if(
+        ball.x + ball.radius > goalie.x &&
+        ball.x - ball.radius < goalie.x + goalie.width &&
+        ball.y + ball.radius > goalie.y - goalie.height/2 &&
+        ball.y - ball.radius < goalie.y + goalie.height/2
+    ){
+        ball.vx *= -1;
+        ball.x = goalie.x - ball.radius;
+    }
+}
+
+function checkGoal(){
+
+    if(
+        ball.x > goal.x &&
+        ball.y > goal.y &&
+        ball.y < goal.y + goal.height
+    ){
+        score++;
+        scoreEl.textContent = score;
+        resetBall();
+    }
+}
+
+function drawField(){
+
+    ctx.fillStyle = "#1e8b3f";
+    ctx.fillRect(0,0,canvas.width,canvas.height);
+
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 4;
+
+    ctx.strokeRect(20,20,canvas.width-40,canvas.height-40);
+
+    ctx.beginPath();
+    ctx.moveTo(canvas.width/2,20);
+    ctx.lineTo(canvas.width/2,canvas.height-20);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(canvas.width/2,canvas.height/2,70,0,Math.PI*2);
+    ctx.stroke();
+
+    ctx.strokeRect(goal.x,goal.y,goal.width,goal.height);
+}
+
+function drawPlayer(){
+    ctx.fillStyle = "dodgerblue";
+    ctx.beginPath();
+    ctx.arc(player.x,player.y,player.radius,0,Math.PI*2);
+    ctx.fill();
+}
+
+function drawBall(){
+    ctx.fillStyle = "white";
+    ctx.beginPath();
+    ctx.arc(ball.x,ball.y,ball.radius,0,Math.PI*2);
+    ctx.fill();
+}
+
+function drawGoalie(){
+    ctx.fillStyle = "red";
+    ctx.fillRect(
+        goalie.x,
+        goalie.y - goalie.height/2,
+        goalie.width,
+        goalie.height
+    );
+}
+
+function gameLoop(){
+
+    updatePlayer();
+    updateBall();
+    updateGoalie();
+    checkGoal();
+
+    drawField();
+    drawPlayer();
+    drawGoalie();
+    drawBall();
+
+    requestAnimationFrame(gameLoop);
+}
+
+setInterval(()=>{
+    if(gameTime > 0){
+        gameTime--;
+        timerEl.textContent = gameTime;
+    }
+},1000);
+
+restartBtn.addEventListener("click", resetGame);
+
+resetGame();
+gameLoop();
+</script>
+
+</body>
+</html>
